@@ -1,14 +1,14 @@
 :root {
-  --bg: #0b0e0c;
-  --bg-raise: #121613;
+  --bg: #0a1420;
+  --bg-raise: #13233a;
   --bg-raise-2: #171c19;
   --text: #e7efe9;
-  --text-dim: #9db0a4;
-  --text-mute: #5c6b62;
-  --phosphor: #7cffb2;
-  --phosphor-dim: #3f7d5b;
+  --text-dim: #eeefee;
+  --text-mute: #dde0de;
+  --phosphor: #07f86b;
+  --phosphor-dim: #13b65c;
   --amber: #ffb454;
-  --hairline: #23291f;
+  --hairline: #346367;
   --mono: 'IBM Plex Mono', ui-monospace, monospace;
   --sans: 'IBM Plex Sans', system-ui, sans-serif;
 }
@@ -24,8 +24,8 @@ body {
   font-family: var(--sans);
   line-height: 1.5;
   background-image:
-    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(124,255,178,0.06), transparent 60%),
-    radial-gradient(ellipse 700px 400px at 90% 10%, rgba(255,180,84,0.04), transparent 60%);
+    radial-gradient(ellipse 1900px 1500px at 15% 10%, rgba(124,255,178,0.35), transparent 30%),
+    radial-gradient(ellipse 1900px 1500px at 90% 5%, rgba(102, 255, 242, 0.3), transparent 10%);
   background-attachment: fixed;
 }
 
