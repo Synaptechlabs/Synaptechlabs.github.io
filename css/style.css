@@ -24,8 +24,8 @@ body {
   font-family: var(--sans);
   line-height: 1.5;
   background-image:
-    radial-gradient(ellipse 1900px 1500px at 15% 10%, rgba(124,255,178,0.35), transparent 30%),
-    radial-gradient(ellipse 1900px 1500px at 90% 5%, rgba(102, 255, 242, 0.3), transparent 10%);
+    radial-gradient(ellipse 1900px 1500px at 15% 10%, rgba(124,255,178,0.35), transparent 30%);
+
   background-attachment: fixed;
 }
 
