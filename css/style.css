@@ -311,6 +311,112 @@ footer {
 footer a { color: var(--text-dim); text-decoration: none; }
 footer a:hover { color: var(--phosphor); }
 
+/* ---------- Lucy chat ---------- */
+
+.lucy-chat {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 10;
+  font-family: var(--sans);
+}
+
+.lucy-chat__toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 0 17px;
+  border: 1px solid var(--phosphor-dim);
+  border-radius: 8px;
+  background: var(--bg-raise);
+  color: var(--text);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  font: 600 13px var(--mono);
+}
+
+.lucy-chat__toggle:hover { color: var(--phosphor); border-color: var(--phosphor); }
+.lucy-chat__toggle-dot { color: var(--phosphor); font-size: 18px; line-height: 1; }
+
+.lucy-chat__panel {
+  position: absolute;
+  right: 0;
+  bottom: 58px;
+  display: flex;
+  width: min(360px, calc(100vw - 32px));
+  height: min(480px, calc(100vh - 112px));
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--bg-raise);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+
+.lucy-chat__panel[hidden] { display: none; }
+
+.lucy-chat__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--hairline);
+  font: 600 14px var(--mono);
+}
+
+.lucy-chat__status { color: var(--phosphor); }
+.lucy-chat__close { border: 0; background: transparent; color: var(--text-dim); cursor: pointer; font-size: 22px; line-height: 1; }
+.lucy-chat__close:hover { color: var(--phosphor); }
+
+.lucy-chat__messages {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.lucy-chat__message {
+  max-width: 88%;
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid var(--hairline);
+  border-radius: 7px;
+  color: var(--text-dim);
+  font-size: 14px;
+  white-space: pre-wrap;
+}
+
+.lucy-chat__message--user { align-self: flex-end; border-color: var(--phosphor-dim); color: var(--text); }
+.lucy-chat__message--loading { color: var(--text-mute); font-family: var(--mono); }
+.lucy-chat__message--error { color: var(--amber); }
+
+.lucy-chat__form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--hairline); }
+.lucy-chat__input {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  padding: 9px 10px;
+  font: 14px var(--sans);
+}
+.lucy-chat__input::placeholder { color: var(--text-mute); }
+.lucy-chat__send {
+  border: 1px solid var(--phosphor-dim);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--phosphor);
+  cursor: pointer;
+  padding: 0 12px;
+  font: 600 12px var(--mono);
+}
+.lucy-chat__send:hover:not(:disabled) { border-color: var(--phosphor); }
+.lucy-chat__send:disabled, .lucy-chat__input:disabled { cursor: wait; opacity: 0.55; }
+
 @media (max-width: 560px) {
   header.site { flex-direction: column; align-items: flex-start; gap: 10px; }
   header.site nav a { margin-left: 0; margin-right: 18px; }
@@ -318,4 +424,5 @@ footer a:hover { color: var(--phosphor); }
   .project-row .badge-col { grid-row: auto; justify-self: start; margin-top: 4px; }
   .bio-intro { flex-direction: column; align-items: flex-start; }
   .flagship-body { flex-direction: column; }
+  .lucy-chat { right: 16px; bottom: 16px; }
 }
