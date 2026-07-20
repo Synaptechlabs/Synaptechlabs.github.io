@@ -6,7 +6,7 @@
   chat.innerHTML = `
     <section class="lucy-chat__panel" id="lucy-chat-panel" aria-label="Chat with Lucy" hidden>
       <header class="lucy-chat__header">
-        <span><span class="lucy-chat__status" aria-hidden="true">●</span> Lucy - My PA</span>
+        <span><span class="lucy-chat__status" aria-hidden="true">●</span> Lucy - Scott's Personal Assistant</span>
         <button class="lucy-chat__close" type="button" aria-label="Close chat">×</button>
       </header>
       <div class="lucy-chat__messages" aria-live="polite" aria-relevant="additions">
