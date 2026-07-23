@@ -1,5 +1,9 @@
 (() => {
   const endpoint = 'https://lucy-agent.lucy-agent.workers.dev/chat';
+  const turnstileSiteKey = '0x4AAAAAAD70UAZ2zMrs-XUK';
+  let turnstileToken = null;
+  let turnstileWidgetId = null;
+  let requestInFlight = false;
 
   const chat = document.createElement('aside');
   chat.className = 'lucy-chat';
@@ -13,9 +17,10 @@
         <p class="lucy-chat__message">Hi, I’m Lucy. How can I help?</p>
       </div>
       <form class="lucy-chat__form">
+        <div id="turnstile-widget" data-action="turnstile-spin-v2"></div>
         <label for="lucy-chat-input" class="lucy-chat__label" hidden>Message Lucy</label>
         <input class="lucy-chat__input" id="lucy-chat-input" name="message" type="text" placeholder="Type a message…" autocomplete="off" required>
-        <button class="lucy-chat__send" type="submit">Send</button>
+        <button class="lucy-chat__send" type="submit" disabled>Send</button>
       </form>
     </section>
     <button class="lucy-chat__toggle" type="button" aria-expanded="false" aria-controls="lucy-chat-panel">
@@ -31,6 +36,46 @@
   const input = chat.querySelector('.lucy-chat__input');
   const send = chat.querySelector('.lucy-chat__send');
   const messages = chat.querySelector('.lucy-chat__messages');
+  const turnstileWidget = chat.querySelector('#turnstile-widget');
+
+  const updateSendState = () => {
+    send.disabled = requestInFlight || !turnstileToken;
+  };
+
+  const resetTurnstile = () => {
+    turnstileToken = null;
+    updateSendState();
+    if (turnstileWidgetId !== null && window.turnstile) {
+      window.turnstile.reset(turnstileWidgetId);
+    }
+  };
+
+  const renderTurnstile = () => {
+    if (!window.turnstile || turnstileWidgetId !== null) return;
+
+    turnstileWidgetId = window.turnstile.render(turnstileWidget, {
+      sitekey: turnstileSiteKey,
+      size: 'invisible',
+      action: 'turnstile-spin-v2',
+      callback: (token) => {
+        turnstileToken = token;
+        updateSendState();
+      },
+      'expired-callback': resetTurnstile,
+      'timeout-callback': resetTurnstile,
+      'error-callback': () => {
+        resetTurnstile();
+        return true;
+      }
+    });
+  };
+
+  if (window.turnstile) {
+    renderTurnstile();
+  } else {
+    const turnstileScript = document.querySelector('script[src^="https://challenges.cloudflare.com/turnstile/v0/api.js"]');
+    turnstileScript?.addEventListener('load', renderTurnstile, { once: true });
+  }
 
   const setOpen = (open) => {
     panel.hidden = !open;
@@ -57,24 +102,35 @@
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const message = input.value.trim();
-    if (!message || send.disabled) return;
+    if (!message || requestInFlight || !turnstileToken) return;
 
-    addMessage(message, 'user');
+    const userMessage = addMessage(message, 'user');
+    const tokenForRequest = turnstileToken;
+    turnstileToken = null;
+    requestInFlight = true;
     input.value = '';
     input.disabled = true;
-    send.disabled = true;
+    updateSendState();
     const loading = addMessage('Lucy is thinking…', 'loading');
 
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message })
+        body: JSON.stringify({ message, turnstileToken: tokenForRequest })
       });
 
-      if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
+      const data = await response.json().catch(() => ({}));
 
-      const data = await response.json();
+      if (response.status === 403 && data.error === 'Turnstile verification failed') {
+        userMessage.remove();
+        input.value = message;
+        loading.remove();
+        addMessage('Verification expired or failed. Please try sending your message again.', 'error');
+        return;
+      }
+
+      if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
       if (typeof data.reply !== 'string') throw new Error('Response did not include a reply');
 
       loading.remove();
@@ -84,8 +140,9 @@
       loading.remove();
       addMessage('Sorry, Lucy couldn’t respond just now. Please try again in a moment.', 'error');
     } finally {
+      requestInFlight = false;
       input.disabled = false;
-      send.disabled = false;
+      resetTurnstile();
       input.focus();
     }
   });
