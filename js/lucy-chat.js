@@ -4,6 +4,8 @@
   let turnstileToken = null;
   let turnstileWidgetId = null;
   let requestInFlight = false;
+  let previousResponseId = null;
+  let turnCount = 0;
 
   const chat = document.createElement('aside');
   chat.className = 'lucy-chat';
@@ -14,7 +16,8 @@
         <button class="lucy-chat__close" type="button" aria-label="Close chat">×</button>
       </header>
       <div class="lucy-chat__transmission" data-state="idle" aria-hidden="true">
-        <div class="lucy-chat__portrait"></div>
+        <div class="lucy-chat__portrait lucy-chat__portrait--primary"></div>
+        <div class="lucy-chat__portrait lucy-chat__portrait--transition" data-frame="idle-anticipating"></div>
         <span class="lucy-chat__signal">LUCY // REMOTE LINK</span>
       </div>
       <div class="lucy-chat__messages" aria-live="polite" aria-relevant="additions">
@@ -42,11 +45,34 @@
   const messages = chat.querySelector('.lucy-chat__messages');
   const turnstileWidget = chat.querySelector('#turnstile-widget');
   const transmission = chat.querySelector('.lucy-chat__transmission');
+  const transitionPortrait = chat.querySelector('.lucy-chat__portrait--transition');
   let responseStateTimer;
+  let transitionStateTimer;
+  let currentTransmissionState = 'idle';
+
+  const transitionFrames = {
+    'idle:anticipating': 'idle-anticipating',
+    'anticipating:idle': 'idle-anticipating',
+    'anticipating:thinking': 'anticipating-thinking',
+    'thinking:anticipating': 'anticipating-thinking',
+    'thinking:responding': 'thinking-responding',
+    'responding:idle': 'responding-idle'
+  };
 
   const setTransmissionState = (state) => {
     window.clearTimeout(responseStateTimer);
-    transmission.dataset.state = state;
+    if (state === currentTransmissionState) return;
+
+    window.clearTimeout(transitionStateTimer);
+    transitionPortrait.dataset.frame =
+      transitionFrames[`${currentTransmissionState}:${state}`] || 'responding-idle';
+    transitionPortrait.classList.add('lucy-chat__portrait--visible');
+    currentTransmissionState = state;
+
+    transitionStateTimer = window.setTimeout(() => {
+      transmission.dataset.state = state;
+      transitionPortrait.classList.remove('lucy-chat__portrait--visible');
+    }, 140);
   };
 
   const scheduleTransmissionGlitch = () => {
@@ -117,6 +143,55 @@
     return message;
   };
 
+  const readSseStream = async (response, onEvent) => {
+    if (!response.body) throw new Error('Streaming response body was unavailable');
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    const processEvent = (chunk) => {
+      const data = chunk
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith('data:'))
+        .map((line) => line.slice(5).trimStart())
+        .join('\n');
+
+      if (!data) return null;
+
+      const streamEvent = JSON.parse(data);
+      onEvent(streamEvent);
+      return streamEvent.type === 'done' || streamEvent.type === 'error'
+        ? streamEvent
+        : null;
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        buffer += decoder.decode();
+        const finalEvent = buffer.trim() ? processEvent(buffer) : null;
+        return finalEvent;
+      }
+
+      buffer += decoder.decode(value, { stream: true });
+
+      while (true) {
+        const boundary = buffer.match(/\r?\n\r?\n/);
+        if (!boundary || boundary.index === undefined) break;
+
+        const chunk = buffer.slice(0, boundary.index);
+        buffer = buffer.slice(boundary.index + boundary[0].length);
+        const terminalEvent = processEvent(chunk);
+
+        if (terminalEvent) {
+          await reader.cancel();
+          return terminalEvent;
+        }
+      }
+    }
+  };
+
   toggle.addEventListener('click', () => setOpen(panel.hidden));
   close.addEventListener('click', () => setOpen(false));
   document.addEventListener('keydown', (event) => {
@@ -145,33 +220,71 @@
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, turnstileToken: tokenForRequest })
+        body: JSON.stringify({
+          message,
+          turnstileToken: tokenForRequest,
+          previousResponseId,
+          turnCount
+        })
       });
 
-      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
 
-      if (response.status === 403 && data.error === 'Turnstile verification failed') {
-        userMessage.remove();
-        input.value = message;
-        loading.remove();
-        addMessage('Verification expired or failed. Please try sending your message again.', 'error');
-        setTransmissionState('anticipating');
-        return;
+        if (response.status === 403 && errorBody.error === 'Turnstile verification failed') {
+          userMessage.remove();
+          input.value = message;
+          loading.remove();
+          addMessage('Verification expired or failed. Please try sending your message again.', 'error');
+          setTransmissionState('anticipating');
+          return;
+        }
+
+        throw new Error(errorBody.error || `Request failed with status ${response.status}`);
       }
 
-      if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
-      if (typeof data.reply !== 'string') throw new Error('Response did not include a reply');
+      let replyMessage = null;
+      const terminalEvent = await readSseStream(response, (streamEvent) => {
+        if (streamEvent.type !== 'delta' || typeof streamEvent.text !== 'string') return;
 
-      loading.remove();
-      addMessage(data.reply);
-      setTransmissionState('responding');
+        if (!replyMessage) {
+          loading.remove();
+          replyMessage = addMessage('');
+          setTransmissionState('responding');
+        }
+
+        replyMessage.textContent += streamEvent.text;
+        messages.scrollTop = messages.scrollHeight;
+      });
+
+      if (!terminalEvent) throw new Error('The response stream ended unexpectedly');
+
+      if (terminalEvent.type === 'error') {
+        const streamError = new Error('Lucy failed while generating a response');
+        streamError.userMessage =
+          typeof terminalEvent.message === 'string'
+            ? terminalEvent.message
+            : 'Lucy couldn’t finish that response. Please try again.';
+        throw streamError;
+      }
+
+      if (!replyMessage) throw new Error('The response stream did not include any reply text');
+      if (typeof terminalEvent.responseId !== 'string') {
+        throw new Error('The response stream did not include a response ID');
+      }
+
+      previousResponseId = terminalEvent.responseId;
+      turnCount += 1;
       responseStateTimer = window.setTimeout(() => {
         setTransmissionState(input.value.trim() ? 'anticipating' : 'idle');
       }, 2200);
     } catch (error) {
       console.error('Lucy chat request failed:', error);
-      loading.remove();
-      addMessage('Sorry, Lucy couldn’t respond just now. Please try again in a moment.', 'error');
+      if (loading.isConnected) loading.remove();
+      addMessage(
+        error.userMessage || 'Sorry, Lucy couldn’t respond just now. Please try again in a moment.',
+        'error'
+      );
       setTransmissionState('idle');
     } finally {
       requestInFlight = false;
