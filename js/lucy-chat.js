@@ -1,8 +1,9 @@
 (() => {
   const endpoint = 'https://lucy-agent.lucy-agent.workers.dev/chat';
   const turnstileSiteKey = '0x4AAAAAAD70UAZ2zMrs-XUK';
-  let turnstileToken = null;
   let turnstileWidgetId = null;
+  let turnstileReady = false;
+  let pendingTurnstileChallenge = null;
   let requestInFlight = false;
   let previousResponseId = null;
   let turnCount = 0;
@@ -89,15 +90,46 @@
   scheduleTransmissionGlitch();
 
   const updateSendState = () => {
-    send.disabled = requestInFlight || !turnstileToken;
+    send.disabled = requestInFlight || !turnstileReady;
   };
 
   const resetTurnstile = () => {
-    turnstileToken = null;
-    updateSendState();
     if (turnstileWidgetId !== null && window.turnstile) {
       window.turnstile.reset(turnstileWidgetId);
     }
+    updateSendState();
+  };
+
+  const settleTurnstileChallenge = (method, value) => {
+    if (!pendingTurnstileChallenge) return;
+
+    const challenge = pendingTurnstileChallenge;
+    pendingTurnstileChallenge = null;
+    window.clearTimeout(challenge.timeout);
+    challenge[method](value);
+  };
+
+  const getTurnstileToken = () => {
+    if (!turnstileReady || turnstileWidgetId === null || !window.turnstile) {
+      return Promise.reject(new Error('Verification is still loading. Please try again.'));
+    }
+
+    return new Promise((resolve, reject) => {
+      const timeout = window.setTimeout(() => {
+        settleTurnstileChallenge(
+          'reject',
+          new Error('Verification timed out. Please try again.')
+        );
+      }, 30000);
+
+      pendingTurnstileChallenge = { resolve, reject, timeout };
+
+      try {
+        window.turnstile.execute(turnstileWidgetId);
+      } catch (error) {
+        settleTurnstileChallenge('reject', error);
+      }
+    });
   };
 
   const renderTurnstile = () => {
@@ -107,17 +139,27 @@
       sitekey: turnstileSiteKey,
       size: 'invisible',
       action: 'turnstile-spin-v2',
+      execution: 'execute',
       callback: (token) => {
-        turnstileToken = token;
-        updateSendState();
+        if (typeof token === 'string' && token) {
+          settleTurnstileChallenge('resolve', token);
+        } else {
+          settleTurnstileChallenge('reject', new Error('Verification returned no token.'));
+        }
       },
-      'expired-callback': resetTurnstile,
-      'timeout-callback': resetTurnstile,
+      'expired-callback': () => {
+        settleTurnstileChallenge('reject', new Error('Verification expired. Please try again.'));
+      },
+      'timeout-callback': () => {
+        settleTurnstileChallenge('reject', new Error('Verification timed out. Please try again.'));
+      },
       'error-callback': () => {
-        resetTurnstile();
+        settleTurnstileChallenge('reject', new Error('Verification failed. Please try again.'));
         return true;
       }
     });
+    turnstileReady = true;
+    updateSendState();
   };
 
   if (window.turnstile) {
@@ -204,11 +246,9 @@
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const message = input.value.trim();
-    if (!message || requestInFlight || !turnstileToken) return;
+    if (!message || requestInFlight || !turnstileReady) return;
 
     const userMessage = addMessage(message, 'user');
-    const tokenForRequest = turnstileToken;
-    turnstileToken = null;
     requestInFlight = true;
     input.value = '';
     input.disabled = true;
@@ -217,6 +257,7 @@
     const loading = addMessage('Lucy is thinking…', 'loading');
 
     try {
+      const tokenForRequest = await getTurnstileToken();
       const requestBody = {
         message,
         turnstileToken: tokenForRequest,
