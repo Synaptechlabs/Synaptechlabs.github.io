@@ -346,6 +346,7 @@ footer a:hover { color: var(--phosphor); }
   display: flex;
   width: min(360px, calc(100vw - 32px));
   height: min(480px, calc(100vh - 112px));
+  height: min(480px, calc(100dvh - 112px));
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--hairline);
