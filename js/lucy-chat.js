@@ -217,15 +217,20 @@
     const loading = addMessage('Lucy is thinking…', 'loading');
 
     try {
+      const requestBody = {
+        message,
+        turnstileToken: tokenForRequest,
+        turnCount
+      };
+
+      if (previousResponseId) {
+        requestBody.previousResponseId = previousResponseId;
+      }
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message,
-          turnstileToken: tokenForRequest,
-          previousResponseId,
-          turnCount
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
