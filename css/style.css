@@ -376,6 +376,7 @@ footer a:hover { color: var(--phosphor); }
   overflow: hidden;
   border-bottom: 1px solid var(--hairline);
   background: #071019;
+  animation: lucy-transmission-pulse 4.4s ease-in-out infinite;
 }
 
 .lucy-chat__portrait {
@@ -386,10 +387,10 @@ footer a:hover { color: var(--phosphor); }
   background-position: 0% 31%;
   background-size: 400% auto;
   filter: saturate(0.72) contrast(1.08) brightness(0.86);
-  transition: background-position 0s;
+  animation: lucy-camera-drift 8s ease-in-out infinite alternate;
 }
 
-.lucy-chat__transmission[data-state='listening'] .lucy-chat__portrait { background-position: 33.333% 31%; }
+.lucy-chat__transmission[data-state='anticipating'] .lucy-chat__portrait { background-position: 33.333% 31%; }
 .lucy-chat__transmission[data-state='thinking'] .lucy-chat__portrait { background-position: 66.667% 31%; }
 .lucy-chat__transmission[data-state='responding'] .lucy-chat__portrait { background-position: 100% 31%; }
 
@@ -403,6 +404,9 @@ footer a:hover { color: var(--phosphor); }
     repeating-linear-gradient(0deg, rgba(4, 20, 27, 0.12) 0, rgba(4, 20, 27, 0.12) 1px, transparent 1px, transparent 3px),
     linear-gradient(90deg, rgba(7, 248, 107, 0.08), transparent 40%, rgba(0, 117, 255, 0.06));
   mix-blend-mode: screen;
+  animation:
+    lucy-signal-flicker 2.7s steps(1) infinite,
+    lucy-analogue-roll 1.8s linear infinite;
 }
 
 .lucy-chat__transmission::after {
@@ -418,8 +422,14 @@ footer a:hover { color: var(--phosphor); }
   animation: lucy-scan 5s linear infinite;
 }
 
-.lucy-chat__transmission--switching .lucy-chat__portrait {
-  animation: lucy-signal-switch 180ms steps(2);
+.lucy-chat__transmission--glitching .lucy-chat__portrait {
+  animation: lucy-signal-glitch 110ms steps(2) infinite;
+}
+
+.lucy-chat__transmission--glitching::before {
+  background:
+    repeating-linear-gradient(0deg, rgba(7, 248, 107, 0.24) 0 2px, transparent 2px 7px),
+    linear-gradient(90deg, rgba(0, 170, 255, 0.2), transparent 38%, rgba(7, 248, 107, 0.18));
 }
 
 .lucy-chat__signal {
@@ -434,16 +444,39 @@ footer a:hover { color: var(--phosphor); }
   letter-spacing: 0.08em;
 }
 
-.lucy-chat__signal--state { right: 10px; left: auto; color: var(--text-dim); }
-
 @keyframes lucy-scan {
   to { transform: translateY(700%); }
 }
 
-@keyframes lucy-signal-switch {
-  0% { opacity: 0.28; transform: translateX(-4px) scaleX(1.03); filter: contrast(1.5) hue-rotate(15deg); }
-  45% { opacity: 0.72; transform: translateX(3px) scaleX(0.98); }
-  100% { opacity: 1; transform: none; }
+@keyframes lucy-camera-drift {
+  0% { transform: scale(1.015) translate3d(-1px, 0, 0); }
+  22% { transform: scale(1.025) translate3d(1px, -1px, 0); }
+  47% { transform: scale(1.035) translate3d(2px, -2px, 0); }
+  73% { transform: scale(1.028) translate3d(0, 1px, 0); }
+  100% { transform: scale(1.02) translate3d(-2px, 1px, 0); }
+}
+
+@keyframes lucy-transmission-pulse {
+  0%, 100% { filter: brightness(0.97); }
+  38% { filter: brightness(1.025); }
+  62% { filter: brightness(0.985); }
+}
+
+@keyframes lucy-analogue-roll {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 9px, 3px 0; }
+}
+
+@keyframes lucy-signal-flicker {
+  0%, 17%, 19%, 54%, 57%, 91%, 100% { opacity: 0.72; }
+  18%, 55% { opacity: 0.28; }
+  56%, 92% { opacity: 0.95; }
+}
+
+@keyframes lucy-signal-glitch {
+  0% { opacity: 0.32; transform: translateX(-7px) scaleX(1.045); filter: contrast(1.7) hue-rotate(18deg); }
+  40% { opacity: 0.78; transform: translateX(5px) scaleX(0.97); filter: brightness(1.25) saturate(1.4); }
+  100% { opacity: 0.48; transform: translateX(-2px) scaleX(1.02); filter: contrast(1.4) hue-rotate(-12deg); }
 }
 
 .lucy-chat__messages {
@@ -506,8 +539,11 @@ footer a:hover { color: var(--phosphor); }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .lucy-chat__transmission,
+  .lucy-chat__portrait,
   .lucy-chat__transmission::after,
-  .lucy-chat__transmission--switching .lucy-chat__portrait {
+  .lucy-chat__transmission::before,
+  .lucy-chat__transmission--glitching .lucy-chat__portrait {
     animation: none;
   }
 }

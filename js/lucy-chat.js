@@ -16,7 +16,6 @@
       <div class="lucy-chat__transmission" data-state="idle" aria-hidden="true">
         <div class="lucy-chat__portrait"></div>
         <span class="lucy-chat__signal">LUCY // REMOTE LINK</span>
-        <span class="lucy-chat__signal lucy-chat__signal--state">IDLE</span>
       </div>
       <div class="lucy-chat__messages" aria-live="polite" aria-relevant="additions">
         <p class="lucy-chat__message">Hi, I’m Lucy. How can I help?</p>
@@ -43,17 +42,25 @@
   const messages = chat.querySelector('.lucy-chat__messages');
   const turnstileWidget = chat.querySelector('#turnstile-widget');
   const transmission = chat.querySelector('.lucy-chat__transmission');
-  const transmissionState = chat.querySelector('.lucy-chat__signal--state');
   let responseStateTimer;
 
   const setTransmissionState = (state) => {
     window.clearTimeout(responseStateTimer);
     transmission.dataset.state = state;
-    transmissionState.textContent = state.toUpperCase();
-    transmission.classList.remove('lucy-chat__transmission--switching');
-    void transmission.offsetWidth;
-    transmission.classList.add('lucy-chat__transmission--switching');
   };
+
+  const scheduleTransmissionGlitch = () => {
+    const delay = 1200 + Math.random() * 3600;
+    window.setTimeout(() => {
+      transmission.classList.add('lucy-chat__transmission--glitching');
+      window.setTimeout(() => {
+        transmission.classList.remove('lucy-chat__transmission--glitching');
+        scheduleTransmissionGlitch();
+      }, 90 + Math.random() * 190);
+    }, delay);
+  };
+
+  scheduleTransmissionGlitch();
 
   const updateSendState = () => {
     send.disabled = requestInFlight || !turnstileToken;
@@ -116,7 +123,7 @@
     if (event.key === 'Escape' && !panel.hidden) setOpen(false);
   });
   input.addEventListener('input', () => {
-    if (!requestInFlight) setTransmissionState(input.value.trim() ? 'listening' : 'idle');
+    if (!requestInFlight) setTransmissionState(input.value.trim() ? 'anticipating' : 'idle');
   });
 
   form.addEventListener('submit', async (event) => {
@@ -148,7 +155,7 @@
         input.value = message;
         loading.remove();
         addMessage('Verification expired or failed. Please try sending your message again.', 'error');
-        setTransmissionState('listening');
+        setTransmissionState('anticipating');
         return;
       }
 
@@ -158,7 +165,9 @@
       loading.remove();
       addMessage(data.reply);
       setTransmissionState('responding');
-      responseStateTimer = window.setTimeout(() => setTransmissionState('idle'), 2200);
+      responseStateTimer = window.setTimeout(() => {
+        setTransmissionState(input.value.trim() ? 'anticipating' : 'idle');
+      }, 2200);
     } catch (error) {
       console.error('Lucy chat request failed:', error);
       loading.remove();
