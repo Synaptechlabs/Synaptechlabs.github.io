@@ -13,6 +13,11 @@
         <span><span class="lucy-chat__status" aria-hidden="true">●</span> Lucy - Scott's Personal Assistant</span>
         <button class="lucy-chat__close" type="button" aria-label="Close chat">×</button>
       </header>
+      <div class="lucy-chat__transmission" data-state="idle" aria-hidden="true">
+        <div class="lucy-chat__portrait"></div>
+        <span class="lucy-chat__signal">LUCY // REMOTE LINK</span>
+        <span class="lucy-chat__signal lucy-chat__signal--state">IDLE</span>
+      </div>
       <div class="lucy-chat__messages" aria-live="polite" aria-relevant="additions">
         <p class="lucy-chat__message">Hi, I’m Lucy. How can I help?</p>
       </div>
@@ -37,6 +42,18 @@
   const send = chat.querySelector('.lucy-chat__send');
   const messages = chat.querySelector('.lucy-chat__messages');
   const turnstileWidget = chat.querySelector('#turnstile-widget');
+  const transmission = chat.querySelector('.lucy-chat__transmission');
+  const transmissionState = chat.querySelector('.lucy-chat__signal--state');
+  let responseStateTimer;
+
+  const setTransmissionState = (state) => {
+    window.clearTimeout(responseStateTimer);
+    transmission.dataset.state = state;
+    transmissionState.textContent = state.toUpperCase();
+    transmission.classList.remove('lucy-chat__transmission--switching');
+    void transmission.offsetWidth;
+    transmission.classList.add('lucy-chat__transmission--switching');
+  };
 
   const updateSendState = () => {
     send.disabled = requestInFlight || !turnstileToken;
@@ -98,6 +115,9 @@
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && !panel.hidden) setOpen(false);
   });
+  input.addEventListener('input', () => {
+    if (!requestInFlight) setTransmissionState(input.value.trim() ? 'listening' : 'idle');
+  });
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -111,6 +131,7 @@
     input.value = '';
     input.disabled = true;
     updateSendState();
+    setTransmissionState('thinking');
     const loading = addMessage('Lucy is thinking…', 'loading');
 
     try {
@@ -127,6 +148,7 @@
         input.value = message;
         loading.remove();
         addMessage('Verification expired or failed. Please try sending your message again.', 'error');
+        setTransmissionState('listening');
         return;
       }
 
@@ -135,10 +157,13 @@
 
       loading.remove();
       addMessage(data.reply);
+      setTransmissionState('responding');
+      responseStateTimer = window.setTimeout(() => setTransmissionState('idle'), 2200);
     } catch (error) {
       console.error('Lucy chat request failed:', error);
       loading.remove();
       addMessage('Sorry, Lucy couldn’t respond just now. Please try again in a moment.', 'error');
+      setTransmissionState('idle');
     } finally {
       requestInFlight = false;
       input.disabled = false;

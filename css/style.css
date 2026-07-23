@@ -369,6 +369,83 @@ footer a:hover { color: var(--phosphor); }
 .lucy-chat__close { border: 0; background: transparent; color: var(--text-dim); cursor: pointer; font-size: 22px; line-height: 1; }
 .lucy-chat__close:hover { color: var(--phosphor); }
 
+.lucy-chat__transmission {
+  position: relative;
+  height: 150px;
+  flex: 0 0 150px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--hairline);
+  background: #071019;
+}
+
+.lucy-chat__portrait {
+  position: absolute;
+  inset: 0;
+  background-image: url('../images/lucy-transmission-sprite.jpg');
+  background-repeat: no-repeat;
+  background-position: 0% 31%;
+  background-size: 400% auto;
+  filter: saturate(0.72) contrast(1.08) brightness(0.86);
+  transition: background-position 0s;
+}
+
+.lucy-chat__transmission[data-state='listening'] .lucy-chat__portrait { background-position: 33.333% 31%; }
+.lucy-chat__transmission[data-state='thinking'] .lucy-chat__portrait { background-position: 66.667% 31%; }
+.lucy-chat__transmission[data-state='responding'] .lucy-chat__portrait { background-position: 100% 31%; }
+
+.lucy-chat__transmission::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(0deg, rgba(4, 20, 27, 0.12) 0, rgba(4, 20, 27, 0.12) 1px, transparent 1px, transparent 3px),
+    linear-gradient(90deg, rgba(7, 248, 107, 0.08), transparent 40%, rgba(0, 117, 255, 0.06));
+  mix-blend-mode: screen;
+}
+
+.lucy-chat__transmission::after {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  top: -35%;
+  right: 0;
+  left: 0;
+  height: 25%;
+  pointer-events: none;
+  background: linear-gradient(transparent, rgba(7, 248, 107, 0.11), transparent);
+  animation: lucy-scan 5s linear infinite;
+}
+
+.lucy-chat__transmission--switching .lucy-chat__portrait {
+  animation: lucy-signal-switch 180ms steps(2);
+}
+
+.lucy-chat__signal {
+  position: absolute;
+  z-index: 3;
+  bottom: 8px;
+  left: 10px;
+  padding: 2px 5px;
+  background: rgba(4, 13, 20, 0.72);
+  color: var(--phosphor);
+  font: 500 9px var(--mono);
+  letter-spacing: 0.08em;
+}
+
+.lucy-chat__signal--state { right: 10px; left: auto; color: var(--text-dim); }
+
+@keyframes lucy-scan {
+  to { transform: translateY(700%); }
+}
+
+@keyframes lucy-signal-switch {
+  0% { opacity: 0.28; transform: translateX(-4px) scaleX(1.03); filter: contrast(1.5) hue-rotate(15deg); }
+  45% { opacity: 0.72; transform: translateX(3px) scaleX(0.98); }
+  100% { opacity: 1; transform: none; }
+}
+
 .lucy-chat__messages {
   display: flex;
   flex: 1;
@@ -425,4 +502,12 @@ footer a:hover { color: var(--phosphor); }
   .bio-intro { flex-direction: column; align-items: flex-start; }
   .flagship-body { flex-direction: column; }
   .lucy-chat { right: 16px; bottom: 16px; }
+  .lucy-chat__transmission { height: 120px; flex-basis: 120px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lucy-chat__transmission::after,
+  .lucy-chat__transmission--switching .lucy-chat__portrait {
+    animation: none;
+  }
 }
