@@ -37,7 +37,8 @@
         <button class="lucy-chat__close" type="button" aria-label="Close chat">×</button>
       </header>
       <div class="lucy-chat__transmission" aria-hidden="true">
-        <div class="lucy-chat__portrait"></div>
+        <div class="lucy-chat__portrait lucy-chat__portrait--a lucy-chat__portrait--visible"></div>
+        <div class="lucy-chat__portrait lucy-chat__portrait--b"></div>
         <span class="lucy-chat__signal">LUCY // REMOTE LINK</span>
       </div>
       <div class="lucy-chat__messages" aria-live="polite" aria-relevant="additions">
@@ -65,7 +66,11 @@
   const messages = chat.querySelector('.lucy-chat__messages');
   const turnstileWidget = chat.querySelector('#turnstile-widget');
   const transmission = chat.querySelector('.lucy-chat__transmission');
-  const portrait = chat.querySelector('.lucy-chat__portrait');
+  const portraitLayers = [
+    chat.querySelector('.lucy-chat__portrait--a'),
+    chat.querySelector('.lucy-chat__portrait--b')
+  ];
+  let activeLayerIndex = 0;
   let currentTransmissionState = 'idle';
   let frameIndex = 0;
   let responseStateTimer;
@@ -83,12 +88,36 @@
     responding: buildRow(ROW_Y.row3)
   };
 
-  const frameIntervalMs = (1000 / 24) * 4; // 1/4 speed
+  const baseFrameIntervalMs = (1000 / 24) * 4; // 1/4 speed
+  const frameIntervalMsByState = {
+    idle: baseFrameIntervalMs * 2, // row1 reads jumpy at the base rate, so idle runs slower
+    anticipating: baseFrameIntervalMs,
+    thinking: baseFrameIntervalMs,
+    responding: baseFrameIntervalMs
+  };
+  // Row1 also gets a cross-dissolve between frames, on top of the slower rate above.
+  // Other states keep an instant cut (0ms), matching prior behavior.
+  const crossfadeMsByState = {
+    idle: 150,
+    anticipating: 0,
+    thinking: 0,
+    responding: 0
+  };
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const applyFrame = () => {
     const frame = sequenceByState[currentTransmissionState][frameIndex];
-    portrait.style.backgroundPosition = `${frame.x} ${frame.y}`;
+    const duration = prefersReducedMotion ? 0 : crossfadeMsByState[currentTransmissionState];
+    const outgoingLayer = portraitLayers[activeLayerIndex];
+    const incomingLayer = portraitLayers[1 - activeLayerIndex];
+
+    outgoingLayer.style.transitionDuration = `${duration}ms`;
+    incomingLayer.style.transitionDuration = `${duration}ms`;
+    incomingLayer.style.backgroundPosition = `${frame.x} ${frame.y}`;
+    incomingLayer.classList.add('lucy-chat__portrait--visible');
+    outgoingLayer.classList.remove('lucy-chat__portrait--visible');
+
+    activeLayerIndex = 1 - activeLayerIndex;
   };
 
   const setTransmissionState = (state) => {
@@ -102,10 +131,14 @@
   applyFrame();
 
   if (!prefersReducedMotion) {
-    window.setInterval(() => {
-      frameIndex = (frameIndex + 1) % sequenceByState[currentTransmissionState].length;
-      applyFrame();
-    }, frameIntervalMs);
+    const scheduleNextFrame = () => {
+      window.setTimeout(() => {
+        frameIndex = (frameIndex + 1) % sequenceByState[currentTransmissionState].length;
+        applyFrame();
+        scheduleNextFrame();
+      }, frameIntervalMsByState[currentTransmissionState]);
+    };
+    scheduleNextFrame();
   }
 
   const scheduleTransmissionGlitch = () => {

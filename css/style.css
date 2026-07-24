@@ -386,11 +386,14 @@ footer a:hover { color: var(--phosphor); }
   inset: 0;
   background-image: url('../images/lucy-transmission-frames.png');
   background-repeat: no-repeat;
-  background-position: 100% 5%;
+  background-position: 0% 5%;
   background-size: 600% auto;
   filter: saturate(0.72) contrast(1.08) brightness(0.86);
   animation: lucy-camera-drift 8s ease-in-out infinite alternate;
+  opacity: 0;
+  transition-property: opacity;
 }
+.lucy-chat__portrait--visible { opacity: 1; }
 
 .lucy-chat__transmission::before {
   content: '';
