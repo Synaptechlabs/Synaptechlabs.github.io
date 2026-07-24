@@ -82,7 +82,7 @@
 
   // Each chat state just plays its assigned row(s) forward, in order, on loop.
   const sequenceByState = {
-    idle: [...buildRow(ROW_Y.row1), ...buildRow(ROW_Y.row4)],
+    idle: buildRow(ROW_Y.row1),
     anticipating: buildRow(ROW_Y.row2),
     thinking: buildRow(ROW_Y.row4),
     responding: buildRow(ROW_Y.row3)
