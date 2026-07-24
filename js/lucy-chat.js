@@ -83,7 +83,7 @@
     responding: buildRow(ROW_Y.row3)
   };
 
-  const frameIntervalMs = 1000 / 24; // 24 frames = 1 second of play
+  const frameIntervalMs = (1000 / 24) * 4; // 1/4 speed
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const applyFrame = () => {
