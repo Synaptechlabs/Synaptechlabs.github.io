@@ -1,12 +1,32 @@
 (() => {
   const endpoint = 'https://lucy-agent.lucy-agent.workers.dev/chat';
   const turnstileSiteKey = '0x4AAAAAAD70UAZ2zMrs-XUK';
+  const STORAGE_KEY = 'lucyChatState';
+
+  const loadChatState = () => {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : { previousResponseId: undefined, messages: [], turnCount: 0 };
+    } catch {
+      // sessionStorage unavailable (private browsing, quota, etc.) — degrade
+      // gracefully to today's behavior, don't break the widget over this.
+      return { previousResponseId: undefined, messages: [], turnCount: 0 };
+    }
+  };
+
+  const saveChatState = (state) => {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      // ignore — same reasoning as above
+    }
+  };
+
   let turnstileWidgetId = null;
   let turnstileReady = false;
   let pendingTurnstileChallenge = null;
   let requestInFlight = false;
-  let previousResponseId = null;
-  let turnCount = 0;
+  const chatState = loadChatState();
 
   const chat = document.createElement('aside');
   chat.className = 'lucy-chat';
@@ -185,6 +205,11 @@
     return message;
   };
 
+  if (chatState.messages.length > 0) {
+    messages.innerHTML = '';
+    chatState.messages.forEach((entry) => addMessage(entry.text, entry.kind));
+  }
+
   const readSseStream = async (response, onEvent) => {
     if (!response.body) throw new Error('Streaming response body was unavailable');
 
@@ -249,6 +274,8 @@
     if (!message || requestInFlight || !turnstileReady) return;
 
     const userMessage = addMessage(message, 'user');
+    chatState.messages.push({ kind: 'user', text: message });
+    saveChatState(chatState);
     requestInFlight = true;
     input.value = '';
     input.disabled = true;
@@ -261,11 +288,11 @@
       const requestBody = {
         message,
         turnstileToken: tokenForRequest,
-        turnCount
+        turnCount: chatState.turnCount
       };
 
-      if (previousResponseId) {
-        requestBody.previousResponseId = previousResponseId;
+      if (chatState.previousResponseId) {
+        requestBody.previousResponseId = chatState.previousResponseId;
       }
 
       const response = await fetch(endpoint, {
@@ -283,6 +310,8 @@
           loading.remove();
           addMessage('Verification expired or failed. Please try sending your message again.', 'error');
           setTransmissionState('anticipating');
+          chatState.messages.pop();
+          saveChatState(chatState);
           return;
         }
 
@@ -319,8 +348,10 @@
         throw new Error('The response stream did not include a response ID');
       }
 
-      previousResponseId = terminalEvent.responseId;
-      turnCount += 1;
+      chatState.previousResponseId = terminalEvent.responseId;
+      chatState.turnCount += 1;
+      chatState.messages.push({ kind: 'reply', text: replyMessage.textContent });
+      saveChatState(chatState);
       responseStateTimer = window.setTimeout(() => {
         setTransmissionState(input.value.trim() ? 'anticipating' : 'idle');
       }, 2200);
