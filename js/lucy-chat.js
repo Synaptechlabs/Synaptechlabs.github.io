@@ -38,7 +38,7 @@
       </header>
       <div class="lucy-chat__transmission" data-state="idle" aria-hidden="true">
         <div class="lucy-chat__portrait lucy-chat__portrait--primary"></div>
-        <div class="lucy-chat__portrait lucy-chat__portrait--transition" data-frame="idle-anticipating"></div>
+        <div class="lucy-chat__portrait lucy-chat__portrait--transition"></div>
         <span class="lucy-chat__signal">LUCY // REMOTE LINK</span>
       </div>
       <div class="lucy-chat__messages" aria-live="polite" aria-relevant="additions">
@@ -69,31 +69,50 @@
   const transitionPortrait = chat.querySelector('.lucy-chat__portrait--transition');
   let responseStateTimer;
   let transitionStateTimer;
+  let transitionFrameTimer;
   let currentTransmissionState = 'idle';
 
-  const transitionFrames = {
-    'idle:anticipating': 'idle-anticipating',
-    'anticipating:idle': 'idle-anticipating',
-    'anticipating:thinking': 'anticipating-thinking',
-    'thinking:anticipating': 'anticipating-thinking',
-    'thinking:responding': 'thinking-responding',
-    'responding:idle': 'responding-idle'
+  const rowPositionByState = {
+    idle: '5%',
+    thinking: '33.333%',
+    responding: '62%',
+    anticipating: '92%'
   };
+  const framePositionsX = ['0%', '20%', '40%', '60%', '80%', '100%'];
+  const frameIntervalMs = 90;
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const setTransmissionState = (state) => {
     window.clearTimeout(responseStateTimer);
     if (state === currentTransmissionState) return;
 
     window.clearTimeout(transitionStateTimer);
-    transitionPortrait.dataset.frame =
-      transitionFrames[`${currentTransmissionState}:${state}`] || 'responding-idle';
-    transitionPortrait.classList.add('lucy-chat__portrait--visible');
+    window.clearInterval(transitionFrameTimer);
     currentTransmissionState = state;
+
+    if (prefersReducedMotion) {
+      transmission.dataset.state = state;
+      return;
+    }
+
+    const rowY = rowPositionByState[state];
+    let frameIndex = 0;
+    transitionPortrait.style.backgroundPosition = `${framePositionsX[0]} ${rowY}`;
+    transitionPortrait.classList.add('lucy-chat__portrait--visible');
+
+    transitionFrameTimer = window.setInterval(() => {
+      frameIndex += 1;
+      if (frameIndex >= framePositionsX.length) {
+        window.clearInterval(transitionFrameTimer);
+        return;
+      }
+      transitionPortrait.style.backgroundPosition = `${framePositionsX[frameIndex]} ${rowY}`;
+    }, frameIntervalMs);
 
     transitionStateTimer = window.setTimeout(() => {
       transmission.dataset.state = state;
       transitionPortrait.classList.remove('lucy-chat__portrait--visible');
-    }, 140);
+    }, frameIntervalMs * (framePositionsX.length - 1) + 60);
   };
 
   const scheduleTransmissionGlitch = () => {
