@@ -392,17 +392,6 @@ footer a:hover { color: var(--phosphor); }
   animation: lucy-camera-drift 8s ease-in-out infinite alternate;
 }
 
-.lucy-chat__transmission[data-state='thinking'] .lucy-chat__portrait--primary { background-position: 100% 33.333%; }
-.lucy-chat__transmission[data-state='responding'] .lucy-chat__portrait--primary { background-position: 100% 62%; }
-.lucy-chat__transmission[data-state='anticipating'] .lucy-chat__portrait--primary { background-position: 100% 92%; }
-
-.lucy-chat__portrait--transition {
-  z-index: 1;
-  opacity: 0;
-  transition: opacity 130ms ease;
-}
-.lucy-chat__portrait--transition.lucy-chat__portrait--visible { opacity: 1; }
-
 .lucy-chat__transmission::before {
   content: '';
   position: absolute;

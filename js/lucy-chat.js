@@ -36,9 +36,8 @@
         <span><span class="lucy-chat__status" aria-hidden="true">●</span> Lucy - Scott's Personal Assistant</span>
         <button class="lucy-chat__close" type="button" aria-label="Close chat">×</button>
       </header>
-      <div class="lucy-chat__transmission" data-state="idle" aria-hidden="true">
-        <div class="lucy-chat__portrait lucy-chat__portrait--primary"></div>
-        <div class="lucy-chat__portrait lucy-chat__portrait--transition"></div>
+      <div class="lucy-chat__transmission" aria-hidden="true">
+        <div class="lucy-chat__portrait"></div>
         <span class="lucy-chat__signal">LUCY // REMOTE LINK</span>
       </div>
       <div class="lucy-chat__messages" aria-live="polite" aria-relevant="additions">
@@ -66,54 +65,48 @@
   const messages = chat.querySelector('.lucy-chat__messages');
   const turnstileWidget = chat.querySelector('#turnstile-widget');
   const transmission = chat.querySelector('.lucy-chat__transmission');
-  const transitionPortrait = chat.querySelector('.lucy-chat__portrait--transition');
-  let responseStateTimer;
-  let transitionStateTimer;
-  let transitionFrameTimer;
+  const portrait = chat.querySelector('.lucy-chat__portrait');
   let currentTransmissionState = 'idle';
+  let frameIndex = 0;
+  let responseStateTimer;
 
-  const rowPositionByState = {
-    idle: '5%',
-    thinking: '33.333%',
-    responding: '62%',
-    anticipating: '92%'
-  };
+  // Row Y-positions within the 6-col x 4-row sprite sheet (images/lucy-transmission-frames.png).
+  const ROW_Y = { row1: '5%', row2: '33.333%', row3: '62%', row4: '92%' };
   const framePositionsX = ['0%', '20%', '40%', '60%', '80%', '100%'];
-  const frameIntervalMs = 90;
+  const buildRow = (rowY) => framePositionsX.map((x) => ({ x, y: rowY }));
+
+  // Each chat state just plays its assigned row(s) forward, in order, on loop.
+  const sequenceByState = {
+    idle: [...buildRow(ROW_Y.row1), ...buildRow(ROW_Y.row4)],
+    anticipating: buildRow(ROW_Y.row2),
+    thinking: buildRow(ROW_Y.row4),
+    responding: buildRow(ROW_Y.row3)
+  };
+
+  const frameIntervalMs = 1000 / 24; // 24 frames = 1 second of play
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const applyFrame = () => {
+    const frame = sequenceByState[currentTransmissionState][frameIndex];
+    portrait.style.backgroundPosition = `${frame.x} ${frame.y}`;
+  };
 
   const setTransmissionState = (state) => {
     window.clearTimeout(responseStateTimer);
     if (state === currentTransmissionState) return;
-
-    window.clearTimeout(transitionStateTimer);
-    window.clearInterval(transitionFrameTimer);
     currentTransmissionState = state;
-
-    if (prefersReducedMotion) {
-      transmission.dataset.state = state;
-      return;
-    }
-
-    const rowY = rowPositionByState[state];
-    let frameIndex = 0;
-    transitionPortrait.style.backgroundPosition = `${framePositionsX[0]} ${rowY}`;
-    transitionPortrait.classList.add('lucy-chat__portrait--visible');
-
-    transitionFrameTimer = window.setInterval(() => {
-      frameIndex += 1;
-      if (frameIndex >= framePositionsX.length) {
-        window.clearInterval(transitionFrameTimer);
-        return;
-      }
-      transitionPortrait.style.backgroundPosition = `${framePositionsX[frameIndex]} ${rowY}`;
-    }, frameIntervalMs);
-
-    transitionStateTimer = window.setTimeout(() => {
-      transmission.dataset.state = state;
-      transitionPortrait.classList.remove('lucy-chat__portrait--visible');
-    }, frameIntervalMs * (framePositionsX.length - 1) + 60);
+    frameIndex = 0;
+    applyFrame();
   };
+
+  applyFrame();
+
+  if (!prefersReducedMotion) {
+    window.setInterval(() => {
+      frameIndex = (frameIndex + 1) % sequenceByState[currentTransmissionState].length;
+      applyFrame();
+    }, frameIntervalMs);
+  }
 
   const scheduleTransmissionGlitch = () => {
     const delay = 1200 + Math.random() * 3600;
